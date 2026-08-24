@@ -6,6 +6,8 @@ package com.flutter.gradle.testing
 
 import com.android.build.api.dsl.ApplicationBuildType
 import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.dsl.LibraryBuildType
+import com.android.build.api.dsl.LibraryExtension
 import io.mockk.every
 import io.mockk.mockk
 import org.gradle.api.NamedDomainObjectContainer
@@ -15,7 +17,7 @@ import org.gradle.api.Project
  * Mocks the Android extension for unit tests reading `compileSdk`, `ndkVersion`, or `buildTypes` via the public DSL.
  *
  * Default parameter values (e.g. `compileSdk = 35`, `ndkVersion = "29.0.13846066"`) serve as representative
- * test fixtures reflecting modern AGP project configurations to avoid NPEs when tested logic reads project extensions.
+ * test fixtures reflecting AGP 8.x and 9.x project configurations to avoid NPEs when tested logic reads project extensions.
  * In actual generated Flutter projects, these values are populated from template properties.
  *
  * Note: This helper also stubs `project.gradle.startParameter.taskNames` (empty) and
@@ -37,7 +39,7 @@ fun setUpMockAndroidExtension(
         every { mockAndroidExtension.ndkVersion } returns ndkVersion
     }
 
-    val container = mockk<NamedDomainObjectContainer<ApplicationBuildType>>()
+    val container = mockk<NamedDomainObjectContainer<ApplicationBuildType>>(relaxed = true)
     // A fresh iterator per call: the container is iterated by multiple loops.
     every { container.iterator() } answers { buildTypes.toMutableList().iterator() }
     every { mockAndroidExtension.buildTypes } returns container
@@ -49,4 +51,36 @@ fun setUpMockAndroidExtension(
     every { project.gradle.startParameter.isOffline } returns false
 
     return mockAndroidExtension
+}
+
+/**
+ * Mocks the Library Android extension for unit tests reading library project configurations via the public DSL.
+ */
+fun setUpMockLibraryAndroidExtension(
+    project: Project,
+    compileSdk: Int? = 35,
+    compileSdkPreview: String? = null,
+    ndkVersion: String? = "29.0.13846066",
+    buildTypes: List<LibraryBuildType> = emptyList()
+): LibraryExtension {
+    val mockLibraryExtension = mockk<LibraryExtension>()
+
+    every { mockLibraryExtension.compileSdk } returns compileSdk
+    every { mockLibraryExtension.compileSdkPreview } returns compileSdkPreview
+    if (ndkVersion != null) {
+        every { mockLibraryExtension.ndkVersion } returns ndkVersion
+    }
+
+    val container = mockk<NamedDomainObjectContainer<LibraryBuildType>>(relaxed = true)
+    // A fresh iterator per call: the container is iterated by multiple loops.
+    every { container.iterator() } answers { buildTypes.toMutableList().iterator() }
+    every { mockLibraryExtension.buildTypes } returns container
+
+    every { project.extensions.findByType(LibraryExtension::class.java) } returns mockLibraryExtension
+    every { project.extensions.findByName("android") } returns mockLibraryExtension
+
+    every { project.gradle.startParameter.taskNames } returns emptyList()
+    every { project.gradle.startParameter.isOffline } returns false
+
+    return mockLibraryExtension
 }
